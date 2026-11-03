@@ -23,7 +23,7 @@ OLD_GROUP="optgroup"
 NEW_OWNER="build"
 NEW_GROUP="optgroup"
 
-# 执行脚本
+# 需要执行的脚本
 TARGET_SCRIPT="/opt/scripts/deploy.sh"
 
 # ==============================
@@ -31,15 +31,30 @@ TARGET_SCRIPT="/opt/scripts/deploy.sh"
 # ==============================
 
 restore_owner() {
-    STATUS=$?
 
-    echo "开始恢复目录属主和属组..."
+    local STATUS=$?
+
+    # 防止恢复失败导致后续目录无法恢复
+    set +e
+
+    echo "========== 开始恢复目录权限 =========="
 
     for DIR in "${DIRS[@]}"; do
-        chown -R "$OLD_OWNER:$OLD_GROUP" "$BASE_DIR/$DIR"
+
+        TARGET_DIR="$BASE_DIR/$DIR"
+
+        echo "恢复目录：$TARGET_DIR"
+
+        if sudo chown -R "$OLD_OWNER:$OLD_GROUP" "$TARGET_DIR"; then
+            echo "恢复成功：$TARGET_DIR"
+        else
+            echo "恢复失败：$TARGET_DIR"
+            STATUS=1
+        fi
+
     done
 
-    echo "所有目录恢复完成"
+    echo "========== 目录权限恢复结束 =========="
 
     exit "$STATUS"
 }
@@ -53,7 +68,7 @@ for DIR in "${DIRS[@]}"; do
     TARGET_DIR="$BASE_DIR/$DIR"
 
     if [ ! -d "$TARGET_DIR" ]; then
-        echo "目录不存在：$TARGET_DIR"
+        echo "ERROR: 目录不存在：$TARGET_DIR"
         exit 1
     fi
 
@@ -63,14 +78,14 @@ for DIR in "${DIRS[@]}"; do
     if [ "$CURRENT_OWNER" != "$OLD_OWNER" ] || \
        [ "$CURRENT_GROUP" != "$OLD_GROUP" ]; then
 
-        echo "目录属主或属组不匹配：$TARGET_DIR"
+        echo "ERROR: 目录属主或属组不匹配：$TARGET_DIR"
         exit 1
     fi
 
 done
 
 # ==============================
-# 注册恢复机制
+# 注册退出恢复机制
 # ==============================
 
 trap restore_owner EXIT
@@ -81,9 +96,11 @@ trap restore_owner EXIT
 
 for DIR in "${DIRS[@]}"; do
 
-    echo "修改目录：$BASE_DIR/$DIR"
+    TARGET_DIR="$BASE_DIR/$DIR"
 
-    chown -R "$NEW_OWNER:$NEW_GROUP" "$BASE_DIR/$DIR"
+    echo "修改临时权限：$TARGET_DIR"
+
+    sudo chown -R "$NEW_OWNER:$NEW_GROUP" "$TARGET_DIR"
 
 done
 
@@ -91,8 +108,8 @@ done
 # 执行目标脚本
 # ==============================
 
-echo "开始执行目标脚本..."
+echo "========== 开始执行目标脚本 =========="
 
 bash "$TARGET_SCRIPT"
 
-echo "目标脚本执行结束"
+echo "========== 目标脚本执行结束 =========="
