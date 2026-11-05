@@ -13,19 +13,19 @@ LOCAL_BRANCH=“feature_branch”
 REMOTE_BRANCH=“release_branch”
 
 WORKSPACE=”/opt/git-workspace”
-REMOTE=“origin”
 
 ==============================
 
-2. Git 仓库路径
+2. Git 仓库路径及地址
 
 ==============================
+
+格式：路径|Git仓地址
 
 REPO_PATHS=(
-“project-a”
-“project-a/module-a”
-“project-b/service”
-“project-c”
+“project-a|ssh://git@server/project-a.git”
+“project-a/module-a|ssh://git@server/module-a.git”
+“project-b/service|ssh://git@server/service.git”
 )
 
 ==============================
@@ -50,11 +50,14 @@ git mm Cherry-Pick “$MR_ID”
 
 ==============================
 
-for REPO_PATH in “${REPO_PATHS[@]}”; do
+for REPO_INFO in “${REPO_PATHS[@]}”; do
 
-echo "正在推送：$REPO_PATH"
+IFS='|' read -r REPO_PATH REPO_URL <<< "$REPO_INFO"
+echo "======================================"
+echo "当前路径：$REPO_PATH"
+echo "Git仓地址：$REPO_URL"
 cd "$WORKSPACE/$REPO_PATH"
-git push "$REMOTE" "$LOCAL_BRANCH:$REMOTE_BRANCH"
+git push "$REPO_URL" "$LOCAL_BRANCH:$REMOTE_BRANCH"
 
 done
 
